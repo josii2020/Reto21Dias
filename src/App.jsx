@@ -440,12 +440,18 @@ export default function App() {
             <p style={{ fontSize: 12, color: muted, margin: 0 }}>Semana {currentData.week}: {["Base & Fundamentos", "Intensidad Media", "Máximo Rendimiento"][currentData.week - 1]}</p>
           </div>
           {currentData.exercises.map((ex, i) => (
-            <Card key={i} style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                <span style={{ fontSize: 20 }}>{ex.icon}</span>
-                <div><div style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>{ex.name}</div><div style={{ fontSize: 12, color: muted, fontFamily: mono }}>{ex.duration}</div></div>
+            <Card key={i} style={{ marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <span style={{ fontSize: 20 }}>{ex.icon}</span>
+                  <div><div style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>{ex.name}</div><div style={{ fontSize: 12, color: muted, fontFamily: mono }}>{ex.duration}</div></div>
+                </div>
+                <Badge color={ex.intensity === "Baja" ? "#34d399" : ex.intensity === "Media" ? "#fbbf24" : "#ef4444"}>{ex.intensity}</Badge>
               </div>
-              <Badge color={ex.intensity === "Baja" ? "#34d399" : ex.intensity === "Media" ? "#fbbf24" : "#ef4444"}>{ex.intensity}</Badge>
+              <a href={`https://www.youtube.com/results?search_query=como+hacer+${encodeURIComponent(ex.name)}+ejercicio`} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", textDecoration: "none", color: "#f87171", fontSize: 12, fontWeight: 600, fontFamily: sans, width: "fit-content" }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#f87171"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                Ver cómo se hace
+              </a>
             </Card>))}
         </>)}
         {tab === "progress" && (<>
