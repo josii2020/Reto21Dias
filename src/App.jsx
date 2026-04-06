@@ -1,0 +1,487 @@
+import { useState, useRef } from "react";
+
+/*
+ * ════════════════════════════════════════════
+ *  CONFIGURACIÓN — Cambiá estos valores
+ * ════════════════════════════════════════════
+ * 
+ * 1. Andá a Lemon Squeezy → Products → tu producto
+ * 2. Hacé clic en "Share" → copiá el Checkout URL
+ * 3. Pegalo abajo reemplazando la URL de ejemplo
+ */
+const CHECKOUT_URL = "https://reto21dias.lemonsqueezy.com/buy/TU-PRODUCTO-ID";
+
+// ─── Data ───────────────────────────────────
+
+const DAYS_DATA = Array.from({ length: 21 }, (_, i) => {
+  const day = i + 1;
+  const week = Math.ceil(day / 7);
+  const mealsPool = [
+    [
+      { meal: "Desayuno", desc: "Avena con banana, canela y semillas de chía", cal: 320, protein: 12 },
+      { meal: "Almuerzo", desc: "Pechuga grillada con ensalada verde y arroz integral", cal: 480, protein: 38 },
+      { meal: "Merienda", desc: "Yogur natural con frutos secos y miel", cal: 180, protein: 8 },
+      { meal: "Cena", desc: "Sopa de verduras con pollo desmenuzado", cal: 350, protein: 28 },
+    ],
+    [
+      { meal: "Desayuno", desc: "Huevos revueltos con tostada integral y aguacate", cal: 380, protein: 18 },
+      { meal: "Almuerzo", desc: "Ensalada de atún con quinoa y vegetales mixtos", cal: 450, protein: 32 },
+      { meal: "Merienda", desc: "Manzana con mantequilla de maní natural", cal: 200, protein: 6 },
+      { meal: "Cena", desc: "Pescado al horno con brócoli al vapor y limón", cal: 380, protein: 34 },
+    ],
+    [
+      { meal: "Desayuno", desc: "Smoothie verde: espinaca, banana, proteína y almendra", cal: 300, protein: 22 },
+      { meal: "Almuerzo", desc: "Bowl de pollo teriyaki con arroz integral y edamame", cal: 520, protein: 36 },
+      { meal: "Merienda", desc: "Hummus con palitos de zanahoria y pepino", cal: 160, protein: 6 },
+      { meal: "Cena", desc: "Wrap integral de pavo con lechuga, tomate y mostaza", cal: 340, protein: 26 },
+    ],
+  ];
+  const exercisesPerWeek = [
+    [
+      { name: "Caminata rápida", duration: "30 min", intensity: "Baja", icon: "🚶" },
+      { name: "Sentadillas", duration: "3×15 reps", intensity: "Media", icon: "🦵" },
+      { name: "Plancha frontal", duration: "3×30 seg", intensity: "Media", icon: "💪" },
+      { name: "Estiramientos", duration: "10 min", intensity: "Baja", icon: "🧘" },
+    ],
+    [
+      { name: "Trote ligero", duration: "25 min", intensity: "Media", icon: "🏃" },
+      { name: "Zancadas caminando", duration: "3×12 c/pierna", intensity: "Media", icon: "🦵" },
+      { name: "Burpees", duration: "3×10 reps", intensity: "Alta", icon: "⚡" },
+      { name: "Plancha lateral", duration: "3×20 seg/lado", intensity: "Media", icon: "💪" },
+    ],
+    [
+      { name: "HIIT Cardio", duration: "20 min", intensity: "Alta", icon: "🔥" },
+      { name: "Sentadilla con salto", duration: "4×12 reps", intensity: "Alta", icon: "⚡" },
+      { name: "Mountain climbers", duration: "3×20 reps", intensity: "Alta", icon: "🏔️" },
+      { name: "Plancha con toque", duration: "3×30 seg", intensity: "Alta", icon: "💪" },
+    ],
+  ];
+  const meals = mealsPool[day % 3];
+  return {
+    day, week, meals,
+    exercises: exercisesPerWeek[week - 1],
+    totalCal: meals.reduce((s, m) => s + m.cal, 0),
+    totalProtein: meals.reduce((s, m) => s + m.protein, 0),
+  };
+});
+
+// ─── Styles ─────────────────────────────────
+
+const accent = "#10b981";
+const accentGlow = "rgba(16,185,129,0.25)";
+const surface = "rgba(255,255,255,0.04)";
+const border = "rgba(255,255,255,0.07)";
+const muted = "rgba(255,255,255,0.4)";
+const bg = "#06060a";
+const mono = "'JetBrains Mono', monospace";
+const sans = "'Sora', sans-serif";
+
+const Card = ({ children, style = {}, glow = false }) => (
+  <div style={{
+    background: surface, border: `1px solid ${border}`, borderRadius: 16, padding: 16,
+    ...(glow ? { boxShadow: `0 0 40px ${accentGlow}, inset 0 1px 0 rgba(255,255,255,0.06)` } : {}),
+    ...style,
+  }}>{children}</div>
+);
+
+const Badge = ({ children, color = accent }) => (
+  <span style={{
+    fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6,
+    background: `${color}22`, color, fontFamily: mono, letterSpacing: "0.5px",
+  }}>{children}</span>
+);
+
+// ─── App ────────────────────────────────────
+
+export default function App() {
+  const [screen, setScreen] = useState("landing");
+  const [selectedDay, setSelectedDay] = useState(1);
+  const [completedDays, setCompletedDays] = useState({});
+  const [weights, setWeights] = useState({});
+  const [initialWeight, setInitialWeight] = useState("");
+  const [goalWeight, setGoalWeight] = useState("");
+  const [tab, setTab] = useState("food");
+  const dayScrollRef = useRef(null);
+
+  const currentData = DAYS_DATA[selectedDay - 1];
+  const completedCount = Object.keys(completedDays).length;
+  const progress = Math.round((completedCount / 21) * 100);
+
+  const toggleDay = (d) =>
+    setCompletedDays((prev) => {
+      const next = { ...prev };
+      next[d] ? delete next[d] : (next[d] = true);
+      return next;
+    });
+
+  const fonts = (
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  );
+
+  // ═════════════════════════════════════════
+  //  LANDING PAGE
+  // ═════════════════════════════════════════
+  if (screen === "landing") {
+    return (
+      <div style={{ fontFamily: sans, background: bg, minHeight: "100vh", color: "#fff" }}>
+        {fonts}
+        <div style={{ maxWidth: 420, margin: "0 auto", padding: "0 20px" }}>
+          <div style={{ position: "relative", paddingTop: 50, textAlign: "center" }}>
+            <div style={{
+              position: "absolute", top: -60, left: "50%", transform: "translateX(-50%)",
+              width: 300, height: 300, background: `radial-gradient(circle, ${accentGlow} 0%, transparent 70%)`,
+              filter: "blur(80px)", pointerEvents: "none",
+            }} />
+
+            <Badge>PROGRAMA INTENSIVO</Badge>
+
+            <h1 style={{
+              fontSize: "clamp(44px, 11vw, 60px)", fontWeight: 800, lineHeight: 0.95,
+              margin: "20px 0 12px", letterSpacing: "-3px",
+              background: `linear-gradient(135deg, #fff 20%, ${accent} 80%)`,
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+            }}>
+              RETO<br />21 DÍAS
+            </h1>
+
+            <p style={{ color: muted, fontSize: 15, maxWidth: 300, margin: "0 auto 36px", lineHeight: 1.55, fontWeight: 300 }}>
+              Transformá tu cuerpo con un plan diario de alimentación y ejercicio progresivo.
+            </p>
+          </div>
+
+          {/* Stats */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 28 }}>
+            {[{ n: "21", l: "Días" }, { n: "84", l: "Comidas" }, { n: "84", l: "Ejercicios" }].map((s) => (
+              <Card key={s.l} style={{ textAlign: "center", padding: "14px 8px" }}>
+                <div style={{ fontSize: 26, fontWeight: 800, color: accent, fontFamily: mono }}>{s.n}</div>
+                <div style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 600, marginTop: 2 }}>{s.l}</div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Features */}
+          <div style={{ marginBottom: 36 }}>
+            {[
+              { icon: "🍽️", t: "Plan de alimentación diario", d: "4 comidas equilibradas con macros y calorías" },
+              { icon: "💪", t: "Rutina progresiva de 3 semanas", d: "De principiante a avanzado, sin equipo" },
+              { icon: "📊", t: "Tracking de progreso", d: "Registrá tu peso y mirá tu evolución visual" },
+            ].map((f) => (
+              <Card key={f.t} style={{ display: "flex", gap: 14, marginBottom: 8, alignItems: "flex-start" }}>
+                <span style={{ fontSize: 22, flexShrink: 0, marginTop: 2 }}>{f.icon}</span>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 3 }}>{f.t}</div>
+                  <div style={{ fontSize: 13, color: muted, lineHeight: 1.4 }}>{f.d}</div>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <Card glow style={{ textAlign: "center", marginBottom: 12, padding: 24 }}>
+            <div style={{ fontSize: 12, color: muted, textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 8 }}>
+              Acceso completo
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 4, marginBottom: 16 }}>
+              <span style={{ fontSize: 40, fontWeight: 800, fontFamily: mono, color: "#fff" }}>$9</span>
+              <span style={{ fontSize: 22, fontWeight: 800, fontFamily: mono, color: "#fff" }}>.99</span>
+              <span style={{ fontSize: 14, color: muted, marginLeft: 4 }}>/mes</span>
+            </div>
+
+            <a
+              href={CHECKOUT_URL}
+              className="lemonsqueezy-button"
+              style={{
+                display: "block", width: "100%", padding: "16px", fontSize: 15, fontWeight: 700,
+                color: "#fff", background: `linear-gradient(135deg, ${accent}, #059669)`,
+                border: "none", borderRadius: 12, cursor: "pointer", fontFamily: sans,
+                boxShadow: `0 8px 32px ${accentGlow}`, textDecoration: "none", textAlign: "center",
+              }}
+            >
+              Empezar ahora →
+            </a>
+          </Card>
+
+          <p style={{ textAlign: "center", fontSize: 12, color: "rgba(255,255,255,0.25)", paddingBottom: 20 }}>
+            Cancelá cuando quieras · Pago seguro
+          </p>
+
+          <div style={{ display: "flex", justifyContent: "center", gap: 20, paddingBottom: 50 }}>
+            {["🔒 Pago seguro", "🌍 135+ países", "❌ Cancelá gratis"].map((b) => (
+              <span key={b} style={{ fontSize: 11, color: muted, fontWeight: 500 }}>{b}</span>
+            ))}
+          </div>
+
+          {/* Demo access for testing (remove in production) */}
+          <div style={{ textAlign: "center", paddingBottom: 40 }}>
+            <button
+              onClick={() => setScreen("onboarding")}
+              style={{
+                background: "none", border: `1px solid ${border}`, color: muted,
+                padding: "8px 16px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: sans,
+              }}
+            >
+              Demo: Acceder sin pago (solo testing)
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ═════════════════════════════════════════
+  //  ONBOARDING
+  // ═════════════════════════════════════════
+  if (screen === "onboarding") {
+    return (
+      <div style={{ fontFamily: sans, background: bg, minHeight: "100vh", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {fonts}
+        <div style={{ width: "100%", maxWidth: 360, padding: "40px 20px" }}>
+          <div style={{ textAlign: "center", marginBottom: 36 }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🎯</div>
+            <h2 style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-1px", margin: "0 0 6px" }}>Tu punto de partida</h2>
+            <p style={{ color: muted, fontSize: 14, margin: 0 }}>Definí tu meta para los próximos 21 días</p>
+          </div>
+
+          {[
+            { label: "Peso actual (kg)", val: initialWeight, set: setInitialWeight, ph: "85" },
+            { label: "Peso meta (kg)", val: goalWeight, set: setGoalWeight, ph: "78" },
+          ].map((f) => (
+            <div key={f.label} style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 8 }}>
+                {f.label}
+              </label>
+              <input
+                type="number"
+                value={f.val}
+                onChange={(e) => f.set(e.target.value)}
+                placeholder={f.ph}
+                style={{
+                  width: "100%", padding: 14, borderRadius: 12, border: `1px solid rgba(16,185,129,0.25)`,
+                  background: surface, color: "#fff", fontSize: 18, fontFamily: mono, outline: "none", boxSizing: "border-box",
+                }}
+              />
+            </div>
+          ))}
+
+          <button
+            onClick={() => {
+              if (initialWeight) {
+                setWeights({ 0: parseFloat(initialWeight) });
+                setScreen("app");
+              }
+            }}
+            disabled={!initialWeight}
+            style={{
+              width: "100%", padding: 16, fontSize: 15, fontWeight: 700, color: "#fff",
+              background: initialWeight ? `linear-gradient(135deg, ${accent}, #059669)` : "rgba(255,255,255,0.08)",
+              border: "none", borderRadius: 12, cursor: initialWeight ? "pointer" : "default",
+              fontFamily: sans, marginTop: 12, boxShadow: initialWeight ? `0 8px 24px ${accentGlow}` : "none",
+            }}
+          >
+            Comenzar el Reto →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ═════════════════════════════════════════
+  //  MAIN APP
+  // ═════════════════════════════════════════
+  return (
+    <div style={{ fontFamily: sans, background: bg, minHeight: "100vh", color: "#fff", maxWidth: 430, margin: "0 auto" }}>
+      {fonts}
+
+      {/* Header */}
+      <div style={{ padding: "18px 20px 14px", background: `linear-gradient(180deg, rgba(16,185,129,0.08) 0%, transparent 100%)` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: accent, textTransform: "uppercase", letterSpacing: "2px", fontFamily: mono, marginBottom: 2 }}>
+              Semana {currentData.week}/3
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.5px" }}>Día {selectedDay}</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: mono, color: progress >= 100 ? "#fbbf24" : accent }}>
+              {progress}%
+            </div>
+            <div style={{ fontSize: 10, color: muted, fontWeight: 500 }}>completado</div>
+          </div>
+        </div>
+        <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+          <div style={{
+            height: "100%", width: `${progress}%`,
+            background: `linear-gradient(90deg, ${accent}, #34d399)`,
+            borderRadius: 2, transition: "width 0.6s cubic-bezier(0.22, 1, 0.36, 1)",
+          }} />
+        </div>
+      </div>
+
+      {/* Day pills */}
+      <div ref={dayScrollRef} style={{ padding: "10px 20px", overflowX: "auto", display: "flex", gap: 5, scrollbarWidth: "none" }}>
+        {DAYS_DATA.map((d) => {
+          const sel = selectedDay === d.day;
+          const done = completedDays[d.day];
+          return (
+            <button key={d.day} onClick={() => setSelectedDay(d.day)} style={{
+              flexShrink: 0, width: 36, height: 36, borderRadius: 10,
+              border: sel ? `2px solid ${accent}` : `1px solid ${border}`,
+              background: done ? `linear-gradient(135deg, ${accent}, #059669)` : sel ? `${accent}18` : surface,
+              color: done ? "#fff" : sel ? accent : muted,
+              fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: mono,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              {done ? "✓" : d.day}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: "flex", padding: "6px 20px", gap: 6 }}>
+        {[
+          { id: "food", label: "🍽️ Comidas" },
+          { id: "exercise", label: "💪 Ejercicio" },
+          { id: "progress", label: "📊 Progreso" },
+        ].map((t) => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{
+            flex: 1, padding: "9px 4px", borderRadius: 10, border: "none",
+            background: tab === t.id ? `${accent}15` : "transparent",
+            color: tab === t.id ? accent : muted,
+            fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: sans,
+            borderBottom: tab === t.id ? `2px solid ${accent}` : "2px solid transparent",
+          }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div style={{ padding: "14px 20px 110px" }}>
+
+        {tab === "food" && (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Plan del día</h3>
+              <div style={{ display: "flex", gap: 6 }}>
+                <Badge>{currentData.totalCal} kcal</Badge>
+                <Badge color="#3b82f6">{currentData.totalProtein}g prot</Badge>
+              </div>
+            </div>
+            {currentData.meals.map((m, i) => (
+              <Card key={i} style={{ marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: accent, textTransform: "uppercase", letterSpacing: "1px" }}>{m.meal}</span>
+                  <span style={{ fontSize: 11, fontFamily: mono, color: muted }}>{m.cal} kcal · {m.protein}g</span>
+                </div>
+                <div style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", lineHeight: 1.45 }}>{m.desc}</div>
+              </Card>
+            ))}
+          </>
+        )}
+
+        {tab === "exercise" && (
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 3px" }}>Rutina del día</h3>
+              <p style={{ fontSize: 12, color: muted, margin: 0 }}>
+                Semana {currentData.week}: {["Base & Fundamentos", "Intensidad Media", "Máximo Rendimiento"][currentData.week - 1]}
+              </p>
+            </div>
+            {currentData.exercises.map((ex, i) => (
+              <Card key={i} style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <span style={{ fontSize: 20 }}>{ex.icon}</span>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>{ex.name}</div>
+                    <div style={{ fontSize: 12, color: muted, fontFamily: mono }}>{ex.duration}</div>
+                  </div>
+                </div>
+                <Badge color={ex.intensity === "Baja" ? "#34d399" : ex.intensity === "Media" ? "#fbbf24" : "#ef4444"}>
+                  {ex.intensity}
+                </Badge>
+              </Card>
+            ))}
+          </>
+        )}
+
+        {tab === "progress" && (
+          <>
+            <Card glow style={{ textAlign: "center", padding: 20, marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: muted, textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 12 }}>
+                Tu transformación
+              </div>
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "baseline", gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 30, fontWeight: 800, fontFamily: mono }}>{weights[0] || "—"}</div>
+                  <div style={{ fontSize: 10, color: muted, marginTop: 2 }}>Inicio kg</div>
+                </div>
+                <div style={{ fontSize: 18, color: "rgba(255,255,255,0.15)" }}>→</div>
+                <div>
+                  <div style={{ fontSize: 30, fontWeight: 800, fontFamily: mono, color: accent }}>{goalWeight || "—"}</div>
+                  <div style={{ fontSize: 10, color: muted, marginTop: 2 }}>Meta kg</div>
+                </div>
+              </div>
+              {weights[0] && goalWeight && (
+                <div style={{ marginTop: 12, fontSize: 12, color: muted, background: surface, padding: "6px 12px", borderRadius: 8, display: "inline-block" }}>
+                  Objetivo: <strong style={{ color: accent }}>{(weights[0] - parseFloat(goalWeight)).toFixed(1)} kg</strong> en 21 días
+                </div>
+              )}
+            </Card>
+
+            <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 10px" }}>Registro de peso</h3>
+            {[
+              { d: 1, label: "📍 Día 1 — Inicio" },
+              { d: 7, label: "📅 Día 7 — Semana 1" },
+              { d: 14, label: "📅 Día 14 — Semana 2" },
+              { d: 21, label: "🏆 Día 21 — Final" },
+            ].map((w) => (
+              <Card key={w.d} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 500 }}>{w.label}</span>
+                <input
+                  type="number" placeholder="kg" value={weights[w.d] || ""}
+                  onChange={(e) => setWeights((p) => ({ ...p, [w.d]: e.target.value }))}
+                  style={{
+                    width: 65, padding: "7px 8px", borderRadius: 8, border: `1px solid rgba(16,185,129,0.2)`,
+                    background: surface, color: "#fff", fontSize: 13, fontFamily: mono, textAlign: "center", outline: "none",
+                  }}
+                />
+              </Card>
+            ))}
+
+            <Card style={{ textAlign: "center", marginTop: 16, padding: 24 }}>
+              <div style={{ fontSize: 11, color: muted, textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 10 }}>
+                Días completados
+              </div>
+              <div style={{
+                fontSize: 44, fontWeight: 800, fontFamily: mono, lineHeight: 1,
+                background: completedCount === 21 ? "linear-gradient(135deg, #fbbf24, #f59e0b)" : `linear-gradient(135deg, ${accent}, #34d399)`,
+                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+              }}>
+                {completedCount}/21
+              </div>
+              {completedCount === 21 && <div style={{ marginTop: 8, fontSize: 14, fontWeight: 600, color: "#fbbf24" }}>🎉 ¡Reto completado!</div>}
+            </Card>
+          </>
+        )}
+      </div>
+
+      {/* Bottom CTA */}
+      <div style={{
+        position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
+        width: "100%", maxWidth: 430, padding: "14px 20px 20px",
+        background: `linear-gradient(180deg, transparent, ${bg} 40%)`,
+      }}>
+        <button onClick={() => toggleDay(selectedDay)} style={{
+          width: "100%", padding: 15, borderRadius: 12, border: "none",
+          background: completedDays[selectedDay] ? "rgba(239,68,68,0.12)" : `linear-gradient(135deg, ${accent}, #059669)`,
+          color: completedDays[selectedDay] ? "#ef4444" : "#fff",
+          fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: sans,
+          boxShadow: completedDays[selectedDay] ? "none" : `0 6px 24px ${accentGlow}`,
+        }}>
+          {completedDays[selectedDay] ? "✕ Desmarcar día" : `✓ Completar Día ${selectedDay}`}
+        </button>
+      </div>
+    </div>
+  );
+}
